@@ -48,11 +48,11 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 }
 
 int main() {
-    int   ret           = 0;
     char *id            = "bot/switch";
     char *host          = "localhost";
     int   port          = 1883;
     int   keepalive     = 60;
+    bool clean_session  = true;
     struct mosquitto *mosq = NULL;
     
     mosquitto_lib_init();
