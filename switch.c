@@ -52,11 +52,7 @@ int main() {
     char *id            = "bot/switch";
     char *host          = "localhost";
     int   port          = 1883;
-    char *cafile        = NULL;
-    char *certfile      = NULL;
-    char *keyfile       = NULL;
     int   keepalive     = 60;
-    bool  clean_session = true;
     struct mosquitto *mosq = NULL;
     
     mosquitto_lib_init();
@@ -70,26 +66,13 @@ int main() {
     mosquitto_connect_callback_set(mosq, on_connect);
     mosquitto_message_callback_set(mosq, on_message);
 
-    if(cafile != NULL) {
-        ret = mosquitto_tls_set(mosq, cafile, NULL, certfile, keyfile, NULL);
-        if(ret != MOSQ_ERR_SUCCESS) {
-            printf("mosquitto_tls_set function is failed.\n");
-        }
-        mosquitto_tls_insecure_set(mosq, true);
-    }
-
     if(mosquitto_connect_bind(mosq, host, port, keepalive, NULL)){
         fprintf(stderr, "failed to connect broker.\n");
         mosquitto_lib_cleanup();
         return(EXIT_FAILURE);
     }
 
-    do {
-        ret = mosquitto_loop_forever(mosq, -1, 1);
-    } while((ret == MOSQ_ERR_SUCCESS) && (connect_desire != FALSE));
-
-    mosquitto_destroy(mosq);
-    mosquitto_lib_cleanup();
+    mosquitto_loop_forever(mosq, -1, 1);
 
     return(EXIT_SUCCESS);
 }
