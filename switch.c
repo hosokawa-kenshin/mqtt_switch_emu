@@ -31,7 +31,7 @@ void on_connect(struct mosquitto *mosq, void *obj, int result){
 }
 
 void display_log(char* publish_topic, char* pub_message, const struct mosquitto_message *message){
-  printf("sub_topic: %s\nsub_message: ", message->topic);
+  printf("\n\nsub_topic: %s\nsub_message: ", message->topic);
   fwrite(message->payload, 1, message->payloadlen, stdout);
   printf("\npub_topic: %s\npub_message: %s\nstate: %d\n\n", publish_topic, pub_message, state);
   fflush(stdout);
@@ -51,18 +51,6 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
       strncpy(pub_message,"OFF",strlen("OFF") + 1);
       mosquitto_publish(mosq, NULL, pub_topic, strlen(pub_message), pub_message, QUALITY_OF_SERVICE, RETAIN);
       display_log(pub_topic,pub_message,message);
-    } else if (strcmp(message->payload,"CHANGE") == 0) {
-      if (state == 0){
-        state = 1;
-        strncpy(pub_message,"ON",strlen("ON") + 1);
-        mosquitto_publish(mosq, NULL, pub_topic, strlen(pub_message), pub_message, QUALITY_OF_SERVICE, RETAIN);
-        display_log(pub_topic,pub_message,message);
-      }else{
-        state = 0;
-        strncpy(pub_message,"OFF",strlen("OFF") + 1);
-        mosquitto_publish(mosq, NULL, pub_topic, strlen(pub_message), pub_message, QUALITY_OF_SERVICE, RETAIN);
-        display_log(pub_topic,pub_message,message);
-      }
     } else {
       printf("The command %p is not defined.\n", message->payload);
     }
@@ -71,6 +59,9 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
     printf("%s (null)\n", message->topic);
   }
   free(pub_message);
+  printf("The state is %d.\n",state);
+  printf("Change the state? y/n\n>");
+  fflush(stdout);
 }
 
 int main() {
@@ -99,7 +90,40 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  mosquitto_loop_forever(mosq, -1, 1);
+  mosquitto_loop_start(mosq);
+
+  while(1){
+    char *publish_message = (char *)malloc(sizeof(char) * MAX_PAYLOAD_SIZE);
+    char answer[10];
+    printf("The state is %d.\n",state);
+    printf("Change the state? y/n\n>");
+    fgets(answer,10,stdin);
+    if (strncmp(answer,"y",1) == 0){
+      switch (state) {
+        case 0:
+          state = 1;
+          strncpy(publish_message,"ON",strlen("ON") + 1);
+          mosquitto_publish(mosq, NULL, pub_topic, strlen(publish_message), publish_message, QUALITY_OF_SERVICE, RETAIN);
+          printf("SUCCESS Change!\n\n");
+          printf("pub_topic: %s\npub_message: %s\nstate: %d\n\n", pub_topic, publish_message, state);
+          break;
+        case 1:
+          state = 0;
+          strncpy(publish_message,"OFF",strlen("OFF") + 1);
+          mosquitto_publish(mosq, NULL, pub_topic, strlen(publish_message), publish_message, QUALITY_OF_SERVICE, RETAIN);
+          printf("SUCCESS Change!\n\n");
+          printf("pub_topic: %s\npub_message: %s\nstate: %d\n\n", pub_topic, publish_message, state);
+          break;
+        default:
+          printf("state value error.\n\n");
+          break;
+      }
+    } else {
+      printf("There is no change.\n\n");
+    }
+    free(publish_message);
+    sleep(1);
+  }
 
   return EXIT_SUCCESS;
 }
