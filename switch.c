@@ -20,9 +20,8 @@
 #define FALSE 0
 #endif
 
-char *sub_topic            = "bot/switch1";
-char *pub_topic            = "openhab/bot/switch1";
-char *pub_controller_topic = "controller/switch";
+char *sub_topic            = "cmd/pinot/v1/ou/eng4/room106/pinot-XXXXXX/switch";
+char *pub_topic            = "dt/pinot/v1/ou/eng4/room106/pinot-XXXXXX/switch";
 int state                  = 0;
 
 //Brokerとの接続成功時に実行されるcallback関数
@@ -30,10 +29,16 @@ void on_connect(struct mosquitto *mosq, void *obj, int result){
   mosquitto_subscribe(mosq, NULL, sub_topic, RETAIN);
 }
 
-void display_log(char* publish_topic, char* pub_message, const struct mosquitto_message *message){
+void display_sub_log(const struct mosquitto_message *message){
   printf("\n\nsub_topic: %s\nsub_message: ", message->topic);
   fwrite(message->payload, 1, message->payloadlen, stdout);
-  printf("\npub_topic: %s\npub_message: %s\nstate: %d\n\n", publish_topic, pub_message, state);
+  printf("\n state: %d\n\n", state);
+  fflush(stdout);
+}
+
+void display_pub_log(char* publish_topic, char* pub_message){
+  printf("\nSUCCESS Change!\n");
+  printf("pub_topic: %s\npub_message: %s\nstate: %d\n\n", publish_topic, pub_message, state);
   fflush(stdout);
 }
 
@@ -43,14 +48,10 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
   if(message->payloadlen){
     if (strcmp(message->payload,"ON") == 0) {
       state = 1;
-      strncpy(pub_message,"ON",strlen("ON") + 1);
-      mosquitto_publish(mosq, NULL, pub_topic, strlen(pub_message), pub_message, QUALITY_OF_SERVICE, RETAIN);
-      display_log(pub_topic,pub_message,message);
+      display_sub_log(message);
     } else if (strcmp(message->payload,"OFF") == 0) {
       state = 0;
-      strncpy(pub_message,"OFF",strlen("OFF") + 1);
-      mosquitto_publish(mosq, NULL, pub_topic, strlen(pub_message), pub_message, QUALITY_OF_SERVICE, RETAIN);
-      display_log(pub_topic,pub_message,message);
+      display_sub_log(message);
     } else {
       printf("The command %p is not defined.\n", message->payload);
     }
@@ -104,18 +105,16 @@ int main() {
           state = 1;
           strncpy(publish_message,"ON",strlen("ON") + 1);
           mosquitto_publish(mosq, NULL, pub_topic, strlen(publish_message), publish_message, QUALITY_OF_SERVICE, RETAIN);
-          printf("SUCCESS Change!\n\n");
-          printf("pub_topic: %s\npub_message: %s\nstate: %d\n\n", pub_topic, publish_message, state);
+          display_pub_log(pub_topic, publish_message);
           break;
         case 1:
           state = 0;
           strncpy(publish_message,"OFF",strlen("OFF") + 1);
           mosquitto_publish(mosq, NULL, pub_topic, strlen(publish_message), publish_message, QUALITY_OF_SERVICE, RETAIN);
-          printf("SUCCESS Change!\n\n");
-          printf("pub_topic: %s\npub_message: %s\nstate: %d\n\n", pub_topic, publish_message, state);
+          display_pub_log(pub_topic, publish_message);
           break;
         default:
-          printf("state value error.\n\n");
+          printf("State value error.\n\n");
           break;
       }
     } else {
