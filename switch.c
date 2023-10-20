@@ -11,6 +11,7 @@
 #define QUALITY_OF_SERVICE 0
 //RETAIN メッセージを保持に関するbool
 #define RETAIN false
+#define DEC 10
 
 #ifndef TRUE
 #define TRUE 1
@@ -20,37 +21,37 @@
 #define FALSE 0
 #endif
 
-char *sub_topic            = "cmd/pinot/v1/ou/eng4/room106/pinot-XXXXXX/switch";
-char *pub_topic            = "dt/pinot/v1/ou/eng4/room106/pinot-XXXXXX/switch";
-int state                  = 0;
+char *sub_topic            = "cmd/pinot/meterlight";
+char *sub_topic2            = "cmd/pinot/meter2light";
+char *sub_topic3            = "cmd/pinot/meter3light";
+
+char *pub_topic            = "dt/pinot/meter";
+char *pub_topic2           = "dt/pinot/meter2";
+char *pub_topic3           = "dt/pinot/meter3";
 
 //Brokerとの接続成功時に実行されるcallback関数
 void on_connect(struct mosquitto *mosq, void *obj, int result){
   mosquitto_subscribe(mosq, NULL, sub_topic, RETAIN);
+  mosquitto_subscribe(mosq, NULL, sub_topic2, RETAIN);
+  mosquitto_subscribe(mosq, NULL, sub_topic3, RETAIN);
 }
 
 void display_sub_log(const struct mosquitto_message *message){
   printf("\n\nsub_topic: %s\nsub_message: ", message->topic);
   fwrite(message->payload, 1, message->payloadlen, stdout);
-  printf("\n state: %d\n\n", state);
   fflush(stdout);
 }
 
 void display_pub_log(char* publish_topic, char* pub_message){
   printf("\nSUCCESS Change!\n");
-  printf("pub_topic: %s\npub_message: %s\nstate: %d\n\n", publish_topic, pub_message, state);
+  printf("pub_topic: %s\npub_message: %s\n\n", publish_topic, pub_message);
   fflush(stdout);
 }
 
 //Brokerからのメッセージ受信時に実行されるcallback関数
 void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *message){
-  char *pub_message = (char *)malloc(sizeof(char) * MAX_PAYLOAD_SIZE);
   if(message->payloadlen){
     if (strcmp(message->payload,"ON") == 0) {
-      state = 1;
-      display_sub_log(message);
-    } else if (strcmp(message->payload,"OFF") == 0) {
-      state = 0;
       display_sub_log(message);
     } else {
       printf("The command %p is not defined.\n", message->payload);
@@ -59,10 +60,6 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
   } else {
     printf("%s (null)\n", message->topic);
   }
-  free(pub_message);
-  printf("The state is %d.\n",state);
-  printf("Change the state? y/n\n>");
-  fflush(stdout);
 }
 
 int main() {
@@ -72,6 +69,17 @@ int main() {
   int   keepalive     = 60;
   bool clean_session  = true;
   struct mosquitto *mosq = NULL;
+
+  int num = 0;
+  int num2 = 26;
+  int num3 = 20;
+  bool decrease = false;
+  bool decrease2 = false;
+  bool decrease3 = false;
+
+  char data[3];
+  char data2[3];
+  char data3[3];
   
   mosquitto_lib_init();
   mosq = mosquitto_new(id, clean_session, NULL);
@@ -94,33 +102,38 @@ int main() {
   mosquitto_loop_start(mosq);
 
   while(1){
-    char *publish_message = (char *)malloc(sizeof(char) * MAX_PAYLOAD_SIZE);
-    char answer[10];
-    printf("The state is %d.\n",state);
-    printf("Change the state? y/n\n>");
-    fgets(answer,10,stdin);
-    if (strncmp(answer,"y",1) == 0){
-      switch (state) {
-        case 0:
-          state = 1;
-          strncpy(publish_message,"ON",strlen("ON") + 1);
-          mosquitto_publish(mosq, NULL, pub_topic, strlen(publish_message), publish_message, QUALITY_OF_SERVICE, RETAIN);
-          display_pub_log(pub_topic, publish_message);
-          break;
-        case 1:
-          state = 0;
-          strncpy(publish_message,"OFF",strlen("OFF") + 1);
-          mosquitto_publish(mosq, NULL, pub_topic, strlen(publish_message), publish_message, QUALITY_OF_SERVICE, RETAIN);
-          display_pub_log(pub_topic, publish_message);
-          break;
-        default:
-          printf("State value error.\n\n");
-          break;
-      }
-    } else {
-      printf("There is no change.\n\n");
+    if(decrease){
+      num-=25;
+      if(num == 0)decrease = false;
+    }else{
+      num+=10;
+      if(num >= 200)decrease = true;
+    } 
+
+    if(decrease2){
+      num2-=1;
+      if(num2 == 25)decrease2 = false;
+    }else{
+      num2+=1;
+      if(num2 >= 30)decrease2 = true;
     }
-    free(publish_message);
+
+    if(decrease3){
+      num3-=5;
+      if(num3 == 0)decrease3 = false;
+    }else{
+      num3+=10;    
+      if(num3 >= 100)decrease3 = true;
+    }
+
+    itoa(num,data,DEC);
+    itoa(num2,data2,DEC);
+    itoa(num3,data3,DEC);
+
+    mosquitto_publish(mosq, NULL, pub_topic, strlen(data), data, QUALITY_OF_SERVICE, RETAIN);
+    mosquitto_publish(mosq, NULL, pub_topic2, strlen(data2), data2, QUALITY_OF_SERVICE, RETAIN);
+    mosquitto_publish(mosq, NULL, pub_topic3, strlen(data3), data3, QUALITY_OF_SERVICE, RETAIN);
+
     sleep(1);
   }
 
